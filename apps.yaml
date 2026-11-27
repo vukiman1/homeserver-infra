@@ -1,0 +1,15 @@
+apps:
+  - name: beszel
+    data: [beszel_data, beszel_agent_data]
+    env: [BESZEL_TOKEN, BESZEL_KEY]
+    expose:
+      hostname: beszel.kimanlab.online
+      service: beszel:8090
+      access: private
+
+  - name: cloudflared
+    env: [TUNNEL_TOKEN]
+
+  - name: dozzle
+    data: [data]
+    env: [DOZZLE_PASSWORD_HASH]

@@ -1,0 +1,34 @@
+services:
+  beszel:
+    image: henrygd/beszel:0.21.2
+    container_name: beszel
+    restart: unless-stopped
+    ports:
+      - "${BIND_IP}:8090:8090"
+    environment:
+      APP_URL: https://beszel.kimanlab.online
+    volumes:
+      - ./beszel_data:/beszel_data
+      - ./beszel_socket:/beszel_socket
+    networks:
+      - default
+      - tunnel
+
+  beszel-agent:
+    image: henrygd/beszel-agent:0.21.2
+    container_name: beszel-agent
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - ./beszel_agent_data:/var/lib/beszel-agent
+      - ./beszel_socket:/beszel_socket
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      LISTEN: /beszel_socket/beszel.sock
+      HUB_URL: http://${BIND_IP}:8090
+      TOKEN: ${BESZEL_TOKEN:?}
+      KEY: ${BESZEL_KEY:?}
+
+networks:
+  tunnel:
+    external: true
