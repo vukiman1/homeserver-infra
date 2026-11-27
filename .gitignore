@@ -1,0 +1,11 @@
+*.env
+!tests/vm.env
+*.tfstate*
+*.tfplan
+.terraform/
+keys.txt
+.superpowers/
+.venv/
+__pycache__/
+.pytest_cache/
+.vm*/
