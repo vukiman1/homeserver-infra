@@ -35,7 +35,10 @@ Việc còn lại: **Task 8, chuyển server thật sang quản lý bằng code*
 - 16 secret đã điền.
 - Review độc lập: 4 lỗi quan trọng đã sửa. Lỗi nhỏ để lại nằm trong sổ tiến độ (`Final: minor`).
 - Kiểm tra gần nhất đạt: pytest 28, `tofu test` 12, `make lint`, test trên máy ảo, diễn tập tiếp quản.
-- Chưa có commit nào (nhánh `feat/infra-bootstrap`). CI chưa chạy trên GitHub.
+- Repo private `vukiman1/homeserver-infra`, PR #1 (`feat/infra-bootstrap` → `main`) đang mở, chưa merge.
+- CI **chưa chạy được**: GitHub từ chối khởi động job do lỗi thanh toán hoặc spending limit của tài khoản. Sửa ở Settings → Billing & plans rồi chạy lại job.
+- Repo được cấu hình cục bộ để commit và push bằng tài khoản `vukiman1` (email noreply). Lệnh `gh` cần `GH_TOKEN=$(gh auth token --user vukiman1)`.
+- Sổ tiến độ `.superpowers/` chỉ có trên MacBook này, không nằm trong git.
 
 ## Server hiện tại
 
@@ -76,4 +79,4 @@ Trước khi bắt đầu: Tailscale trên MacBook đang bật; nhắc tôi **Di
 - Cấu hình cảnh báo trong Beszel (Slack hoặc Telegram).
 - Thêm app mới: tạo `apps/<name>/compose.yaml` (ghim phiên bản, network `tunnel` external), khai báo trong `apps.yaml`, rồi `make test`, `make plan`, `make tofu-apply`, `make deploy`.
 - Image private từ GHCR: chưa có phần đăng nhập registry trong code.
-- Khi tôi nói "tạo pull": tạo repo GitHub private, push, mở PR, kiểm tra CI.
+- Merge PR #1 sau khi CI xanh và Task 8 đạt (tôi tự quyết định lúc merge).
