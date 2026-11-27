@@ -1,0 +1,11 @@
+---
+- name: Create the shared tunnel network
+  community.docker.docker_network:
+    name: tunnel
+
+- name: Deploy each app
+  ansible.builtin.include_tasks: app.yml
+  loop: "{{ selected_apps }}"
+  loop_control:
+    loop_var: app
+    label: "{{ app.name }}"

@@ -1,0 +1,35 @@
+---
+- name: Configure the home server
+  hosts: all
+  vars:
+    apps: "{{ (lookup('ansible.builtin.file', playbook_dir ~ '/../apps.yaml') | from_yaml).apps }}"
+    selected_apps: "{{ apps | rejectattr('name', 'in', apps_skip) | list }}"
+    required_environment: >-
+      {{ (selected_apps | map(attribute='env', default=[]) | flatten) + ['HEALTHCHECKS_HEARTBEAT_URL',
+         'HEALTHCHECKS_BACKUP_URL', 'RESTIC_REPOSITORY', 'RESTIC_PASSWORD',
+         'BACKUP_R2_ACCESS_KEY_ID', 'BACKUP_R2_SECRET_ACCESS_KEY'] }}
+  pre_tasks:
+    - name: Validate apps.yaml and compose files
+      ansible.builtin.command: "{{ ansible_playbook_python }} {{ playbook_dir }}/../scripts/validate_apps.py"
+      delegate_to: localhost
+      run_once: true  # noqa: run-once  reason: the playbook uses the linear strategy
+      changed_when: false
+      check_mode: false
+      tags: [always]
+
+    - name: Require every secret before touching the server
+      ansible.builtin.assert:
+        that: lookup('ansible.builtin.env', item) | length > 0
+        fail_msg: "Environment variable {{ item }} is missing or empty"
+        quiet: true
+      loop: "{{ required_environment }}"
+      tags: [always]
+
+  roles:
+    - { role: base, tags: [base] }
+    - { role: docker, tags: [docker] }
+    - { role: firewall, tags: [firewall], when: firewall_confirmed | default(false) | bool }
+    - { role: backup, tags: [backup] }
+    - { role: apps, tags: [apps] }
+    - { role: thermal, tags: [thermal] }
+    - { role: heartbeat, tags: [heartbeat] }

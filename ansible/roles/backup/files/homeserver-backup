@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+set -euo pipefail
+# shellcheck source=ansible/roles/backup/files/backup-common.sh
+. /usr/local/lib/homeserver/backup-common.sh
+
+report_and_recover() {
+  local status=$?
+  start_stopped_apps || status=1
+  local url="$HEALTHCHECKS_BACKUP_URL"
+  [ "$status" -eq 0 ] || url="$url/fail"
+  curl -fsS -m 10 --retry 3 -o /dev/null "$url" || echo "could not report to Healthchecks" >&2
+  exit "$status"
+}
+
+lock_backup_data
+trap report_and_recover EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+recover_interrupted_apps
+RECORD_STOPPED_APPS=true
+
+for path in "${DATA_PATHS[@]}"; do
+  [ -e "$path" ] || { echo "declared data path is missing: $path" >&2; exit 1; }
+done
+paths=("${DATA_PATHS[@]}")
+for path in "${OPTIONAL_PATHS[@]}"; do
+  [ ! -e "$path" ] || paths+=("$path")
+done
+
+stop_data_apps
+restic backup --tag "$SNAPSHOT_TAG" "${paths[@]}"
+start_stopped_apps
+restic forget --tag "$SNAPSHOT_TAG" --group-by host --keep-daily 7 --keep-weekly 4 --keep-monthly 6 --prune

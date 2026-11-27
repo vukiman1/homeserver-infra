@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Creates the repository if needed and allows scheduled backups to start.
+set -euo pipefail
+# shellcheck source=ansible/roles/backup/files/backup-common.sh
+. /usr/local/lib/homeserver/backup-common.sh
+
+lock_backup_data
+if ! restic cat config >/dev/null 2>&1; then
+  restic init
+  echo "created repository"
+fi
+if [ ! -e "$BACKUP_MARKER" ]; then
+  mkdir -p "$(dirname "$BACKUP_MARKER")"
+  touch "$BACKUP_MARKER"
+  echo "enabled scheduled backups"
+fi

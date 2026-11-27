@@ -1,0 +1,4 @@
+users:
+  admin:
+    name: admin
+    password: '{{ lookup('ansible.builtin.env', 'DOZZLE_PASSWORD_HASH') }}'

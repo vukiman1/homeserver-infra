@@ -1,0 +1,9 @@
+[Unit]
+Description=Report to Healthchecks that the server is alive
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/homeserver/heartbeat.env
+ExecStart=/usr/bin/curl -fsS -m 10 --retry 3 -o /dev/null ${HEALTHCHECKS_HEARTBEAT_URL}

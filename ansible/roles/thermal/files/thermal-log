@@ -1,0 +1,16 @@
+#!/bin/sh
+f=/var/log/thermal.csv
+[ -s "$f" ] || echo "time,cpu_pkg_c,cpu_max_core_c,fan_rpm,battery_pct,ac_online,load1" > "$f"
+for h in /sys/class/hwmon/hwmon*; do
+  case "$(cat "$h/name")" in
+    coretemp) ct=$h ;;
+    dell_smm) ds=$h ;;
+  esac
+done
+pkg=$(( $(cat "$ct/temp1_input") / 1000 ))
+maxc=$(( $(cat "$ct"/temp*_input | sort -n | tail -1) / 1000 ))
+fan=$(cat "$ds/fan1_input" 2>/dev/null || echo NA)
+bat=$(cat /sys/class/power_supply/BAT*/capacity 2>/dev/null || echo NA)
+ac=$(cat /sys/class/power_supply/AC*/online 2>/dev/null || echo NA)
+load=$(cut -d' ' -f1 /proc/loadavg)
+echo "$(date -Iseconds),$pkg,$maxc,$fan,$bat,$ac,$load" >> "$f"

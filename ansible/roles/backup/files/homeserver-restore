@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+# usage: homeserver-restore [--apply] [--snapshot ID]
+set -euo pipefail
+# shellcheck source=ansible/roles/backup/files/backup-common.sh
+. /usr/local/lib/homeserver/backup-common.sh
+
+apply=false
+snapshot=latest
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --apply) apply=true ;;
+    --snapshot) snapshot="${2:?--snapshot needs an id}"; shift ;;
+    *) echo "unknown argument: $1" >&2; exit 2 ;;
+  esac
+  shift
+done
+
+lock_backup_data
+staging="$(mktemp -d /var/tmp/homeserver-restore.XXXXXX)"
+if ! restic restore "$snapshot" --tag "$SNAPSHOT_TAG" --target "$staging"; then
+  echo "no usable snapshot '$snapshot' in the repository; live data is untouched" >&2
+  exit 1
+fi
+for path in "${DATA_PATHS[@]}"; do
+  [ -e "$staging$path" ] || { echo "no usable snapshot: $path is not in it; live data is untouched" >&2; exit 1; }
+done
+
+if [ "$apply" = false ]; then
+  echo "restored to $staging"
+  exit 0
+fi
+
+trap start_stopped_apps EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+stop_data_apps
+suffix="pre-restore-$(date +%Y%m%d-%H%M%S)"
+for path in "${DATA_PATHS[@]}" "${OPTIONAL_PATHS[@]}"; do
+  [ -e "$staging$path" ] || continue
+  mkdir -p "$(dirname "$path")"
+  [ ! -e "$path" ] || mv "$path" "$path.$suffix"
+  mv "$staging$path" "$path"
+done
+mkdir -p "$(dirname "$BACKUP_MARKER")"
+touch "$BACKUP_MARKER"
+rm -rf "${staging:?}"
+echo "restore applied; previous data kept with suffix .$suffix"

@@ -1,0 +1,97 @@
+---
+- name: Install restic
+  ansible.builtin.apt:
+    name: restic
+  become: true
+
+- name: Create the backup directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop: [/etc/homeserver, /usr/local/lib/homeserver, /var/lib/homeserver]
+  become: true
+
+- name: Install the shared backup functions
+  ansible.builtin.copy:
+    src: backup-common.sh
+    dest: /usr/local/lib/homeserver/backup-common.sh
+    mode: "0644"
+  become: true
+
+- name: Install the backup commands
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    dest: "/usr/local/bin/{{ item }}"
+    mode: "0755"
+  loop: [homeserver-backup, homeserver-restore, homeserver-backup-init, homeserver-recover]
+  become: true
+
+- name: Store the backup credentials
+  ansible.builtin.template:
+    src: backup.env.j2
+    dest: /etc/homeserver/backup.env
+    mode: "0600"
+  become: true
+  no_log: true
+
+- name: Describe what to back up
+  ansible.builtin.template:
+    src: backup.conf.j2
+    dest: /etc/homeserver/backup.conf
+    mode: "0644"
+  become: true
+
+- name: Install the backup units
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    dest: "/etc/systemd/system/{{ item }}"
+    mode: "0644"
+  loop: [homeserver-backup.service, homeserver-backup.timer, homeserver-recover.service]
+  become: true
+  notify: Reload systemd for backup
+
+- name: Reload systemd before managing the timer
+  ansible.builtin.meta: flush_handlers
+
+- name: Initialise the repository and allow scheduled backups
+  ansible.builtin.command: /usr/local/bin/homeserver-backup-init
+  become: true
+  register: backup_initialisation
+  changed_when: backup_initialisation.stdout | length > 0
+  when: backup_init | default(false) | bool
+
+- name: Check whether scheduled backups are allowed
+  ansible.builtin.stat:
+    path: /var/lib/homeserver/backup-enabled
+  become: true
+  register: backup_marker
+
+- name: Restore data before the apps first start
+  ansible.builtin.command: /usr/local/bin/homeserver-restore --apply
+  become: true
+  changed_when: true
+  when:
+    - restore_first | default(false) | bool
+    - not backup_marker.stat.exists
+
+- name: Check again after a restore
+  ansible.builtin.stat:
+    path: /var/lib/homeserver/backup-enabled
+  become: true
+  register: backup_marker
+
+- name: Run the timer only when backups are allowed
+  ansible.builtin.systemd_service:
+    name: homeserver-backup.timer
+    enabled: "{{ backup_marker.stat.exists }}"
+    state: "{{ 'started' if backup_marker.stat.exists else 'stopped' }}"
+  become: true
+  when: not ansible_check_mode
+
+- name: Recover apps left stopped by an interrupted backup after a reboot
+  ansible.builtin.systemd_service:
+    name: homeserver-recover.service
+    enabled: true
+  become: true
+  when: not ansible_check_mode

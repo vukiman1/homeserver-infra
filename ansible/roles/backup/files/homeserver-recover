@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# Starts apps that an interrupted backup left stopped.
+set -euo pipefail
+# shellcheck source=ansible/roles/backup/files/backup-common.sh
+. /usr/local/lib/homeserver/backup-common.sh
+
+lock_backup_data
+recover_interrupted_apps

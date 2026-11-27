@@ -1,0 +1,35 @@
+---
+- name: Create the homeserver configuration directory
+  ansible.builtin.file:
+    path: /etc/homeserver
+    state: directory
+    mode: "0755"
+  become: true
+
+- name: Store the heartbeat address
+  ansible.builtin.template:
+    src: heartbeat.env.j2
+    dest: /etc/homeserver/heartbeat.env
+    mode: "0600"
+  become: true
+  no_log: true
+
+- name: Install the heartbeat units
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    dest: "/etc/systemd/system/{{ item }}"
+    mode: "0644"
+  loop: [homeserver-heartbeat.service, homeserver-heartbeat.timer]
+  become: true
+  notify: Reload systemd for heartbeat
+
+- name: Reload systemd before enabling the timer
+  ansible.builtin.meta: flush_handlers
+
+- name: Send heartbeats
+  ansible.builtin.systemd_service:
+    name: homeserver-heartbeat.timer
+    state: started
+    enabled: true
+  become: true
+  when: not ansible_check_mode
