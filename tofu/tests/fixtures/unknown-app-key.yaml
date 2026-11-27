@@ -1,0 +1,5 @@
+apps:
+  - name: blog
+    exposed:
+      hostname: blog.kimanlab.online
+      service: blog:80

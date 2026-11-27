@@ -1,0 +1,77 @@
+---
+- name: Create the apt keyring directory
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: "0755"
+  become: true
+
+- name: Add the Docker signing key
+  ansible.builtin.get_url:
+    url: https://download.docker.com/linux/ubuntu/gpg
+    dest: /etc/apt/keyrings/docker.asc
+    mode: "0644"
+  become: true
+
+- name: Add the Docker repository
+  ansible.builtin.template:
+    src: docker.sources.j2
+    dest: /etc/apt/sources.list.d/docker.sources
+    mode: "0644"
+  become: true
+  register: docker_repository
+
+- name: Pin the Docker major version
+  ansible.builtin.copy:
+    src: docker-pin
+    dest: /etc/apt/preferences.d/docker-pin
+    mode: "0644"
+  become: true
+
+- name: Refresh the package index for the new repository
+  ansible.builtin.apt:
+    update_cache: true
+  become: true
+  when: docker_repository is changed  # noqa: no-handler  reason: the install below needs it immediately
+
+- name: Install Docker
+  ansible.builtin.apt:
+    name: [docker-ce, docker-ce-cli, containerd.io, docker-buildx-plugin, docker-compose-plugin]
+  become: true
+
+- name: Create the Docker configuration directory
+  ansible.builtin.file:
+    path: /etc/docker
+    state: directory
+    mode: "0755"
+  become: true
+
+- name: Limit container log size
+  ansible.builtin.copy:
+    src: daemon.json
+    dest: /etc/docker/daemon.json
+    mode: "0644"
+  become: true
+  notify: Restart docker
+
+- name: Start Docker at boot
+  ansible.builtin.systemd_service:
+    name: docker
+    state: started
+    enabled: true
+  become: true
+
+- name: Let the admin user run Docker
+  ansible.builtin.user:
+    name: "{{ ansible_user }}"
+    groups: docker
+    append: true
+  become: true
+  register: docker_membership
+
+- name: Reconnect so the new group applies
+  ansible.builtin.meta: reset_connection
+  when: docker_membership is changed  # noqa: no-handler  reason: later tasks need the group now
+
+- name: Apply Docker restarts before deploying apps
+  ansible.builtin.meta: flush_handlers

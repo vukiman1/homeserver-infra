@@ -1,0 +1,11 @@
+---
+all:
+  hosts:
+    homeserver:
+      ansible_host: 100.99.61.56
+      ansible_user: kiman
+      bind_ip: 100.99.61.56
+      lan_cidr: 192.168.31.0/24
+      vpn_interface: tailscale0
+      apps_dir: /home/kiman/apps
+      apps_skip: []

@@ -1,0 +1,14 @@
+---
+- name: Create the Dozzle data directory
+  ansible.builtin.file:
+    path: "{{ apps_dir }}/dozzle/data"
+    state: directory
+    mode: "0700"
+
+- name: Write the Dozzle users file
+  ansible.builtin.template:
+    src: dozzle-users.yml.j2
+    dest: "{{ apps_dir }}/dozzle/data/users.yml"
+    mode: "0600"
+  register: apps_dozzle_users
+  no_log: true

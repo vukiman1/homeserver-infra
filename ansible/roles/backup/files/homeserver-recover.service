@@ -1,0 +1,12 @@
+[Unit]
+Description=Start apps left stopped by an interrupted backup
+After=docker.service
+Wants=docker.service
+
+[Service]
+Type=oneshot
+Environment=HOME=/root
+ExecStart=/usr/local/bin/homeserver-recover
+
+[Install]
+WantedBy=multi-user.target

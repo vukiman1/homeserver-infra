@@ -1,0 +1,64 @@
+---
+- name: Install ufw
+  ansible.builtin.apt:
+    name: ufw
+  become: true
+
+- name: Clear a rollback timer left by an earlier run
+  ansible.builtin.systemd_service:
+    name: ufw-rollback.timer
+    state: stopped
+  become: true
+  changed_when: false
+  failed_when: false
+
+# Armed on every run, before any rule changes, because rules apply immediately on an active firewall.
+- name: Schedule the firewall to switch off if SSH is lost
+  ansible.builtin.command: >-
+    systemd-run --unit=ufw-rollback --on-active={{ firewall_rollback_seconds }}
+    --timer-property=AccuracySec=1s ufw disable
+  become: true
+  changed_when: false
+
+- name: Allow everything arriving on the VPN interface
+  community.general.ufw:
+    rule: allow
+    direction: in
+    interface: "{{ vpn_interface }}"
+  become: true
+
+- name: Allow SSH from the local network
+  community.general.ufw:
+    rule: allow
+    from_ip: "{{ lan_cidr }}"
+    to_port: "22"
+    proto: tcp
+  become: true
+
+- name: Allow outgoing connections
+  community.general.ufw:
+    direction: outgoing
+    default: allow
+  become: true
+
+- name: Enable the firewall and deny other incoming connections
+  community.general.ufw:
+    state: enabled
+    direction: incoming
+    default: deny
+  become: true
+
+- name: Drop the current SSH connection
+  ansible.builtin.meta: reset_connection
+
+- name: Prove that a new SSH session still works
+  ansible.builtin.wait_for_connection:
+    timeout: "{{ firewall_verify_timeout }}"
+    connect_timeout: 5
+
+- name: Cancel the rollback
+  ansible.builtin.systemd_service:
+    name: ufw-rollback.timer
+    state: stopped
+  become: true
+  changed_when: false

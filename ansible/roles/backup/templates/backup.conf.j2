@@ -1,0 +1,14 @@
+APPS_DIR={{ apps_dir | quote }}
+DATA_APPS=(
+{% for app in selected_apps if app.data | default([]) %}
+  {{ app.name | quote }}
+{% endfor %}
+)
+DATA_PATHS=(
+{% for app in selected_apps %}
+{% for path in app.data | default([]) %}
+  {{ (apps_dir ~ '/' ~ app.name ~ '/' ~ path) | quote }}
+{% endfor %}
+{% endfor %}
+)
+OPTIONAL_PATHS=(/var/log/thermal.csv)

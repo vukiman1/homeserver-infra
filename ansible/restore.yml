@@ -1,0 +1,35 @@
+---
+- name: Restore homeserver data
+  hosts: all
+  gather_facts: false
+  vars:
+    restore_apply: false
+    restore_snapshot: latest
+  tasks:
+    - name: Ask before overwriting live data
+      ansible.builtin.pause:
+        prompt: "Overwrite live data with snapshot '{{ restore_snapshot }}'? Type yes to continue"
+      register: restore_answer
+      when:
+        - restore_apply | bool
+        - restore_confirm is not defined
+
+    - name: Stop unless the overwrite is confirmed
+      ansible.builtin.assert:
+        that: (restore_confirm | default(restore_answer.user_input | default(''))) == 'yes'
+        fail_msg: Restore cancelled, live data is untouched
+        quiet: true
+      when: restore_apply | bool
+
+    - name: Run the restore
+      ansible.builtin.command:
+        argv: >-
+          {{ ['/usr/local/bin/homeserver-restore', '--snapshot', restore_snapshot | string]
+             + (['--apply'] if restore_apply | bool else []) }}
+      become: true
+      register: restore_result
+      changed_when: true
+
+    - name: Show the result
+      ansible.builtin.debug:
+        var: restore_result.stdout_lines

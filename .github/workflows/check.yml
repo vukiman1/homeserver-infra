@@ -1,0 +1,68 @@
+name: check
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  TOFU_VERSION: 1.11.6
+  GITLEAKS_VERSION: 8.30.1
+  GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.14"
+
+      - uses: opentofu/setup-opentofu@a1320f892987e89d278cc92dc5adc984fb93aca4 # v2.0.2
+        with:
+          tofu_version: ${{ env.TOFU_VERSION }}
+          tofu_wrapper: false
+
+      - name: Install Python tools
+        run: pip install -r requirements-dev.txt -r requirements-ci.txt
+
+      - name: Test the apps.yaml validator
+        run: python -m pytest tests -q
+
+      - name: Validate apps.yaml
+        run: python scripts/validate_apps.py
+
+      - name: Check OpenTofu
+        run: |
+          tofu -chdir=tofu fmt -check -recursive
+          tofu -chdir=tofu init -backend=false -input=false -lockfile=readonly
+          tofu -chdir=tofu validate
+          tofu -chdir=tofu test
+
+      - name: Lint YAML
+        run: yamllint .
+
+      - name: Lint Ansible
+        run: ansible-lint ansible/
+        env:
+          ANSIBLE_CONFIG: ansible/ansible.cfg
+
+      - name: Validate compose files
+        run: |
+          for file in apps/*/compose.yaml; do
+            docker compose --env-file tests/vm.env -f "$file" config -q
+          done
+
+      - name: Scan for secrets
+        run: |
+          archive="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          curl -fsSLO "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/${archive}"
+          echo "${GITLEAKS_SHA256}  ${archive}" | sha256sum -c -
+          tar -xzf "$archive" -C "$RUNNER_TEMP" gitleaks
+          "$RUNNER_TEMP/gitleaks" git --redact .

@@ -1,0 +1,10 @@
+[Unit]
+Description=Back up homeserver data with restic
+After=network-online.target docker.service homeserver-recover.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+Environment=HOME=/root
+ExecStart=/usr/local/bin/homeserver-backup
+TimeoutStopSec=5min

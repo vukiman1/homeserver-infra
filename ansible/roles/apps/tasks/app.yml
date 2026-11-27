@@ -1,0 +1,34 @@
+---
+- name: "Create the directory of {{ app.name }}"
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: "0755"
+  loop: ["{{ apps_dir }}", "{{ apps_dir }}/{{ app.name }}"]
+  become: true
+
+- name: "Copy the compose file of {{ app.name }}"
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../apps/{{ app.name }}/compose.yaml"
+    dest: "{{ apps_dir }}/{{ app.name }}/compose.yaml"
+    mode: "0644"
+
+- name: "Write the environment file of {{ app.name }}"
+  ansible.builtin.template:
+    src: env.j2
+    dest: "{{ apps_dir }}/{{ app.name }}/.env"
+    mode: "0600"
+  no_log: true
+
+- name: Write the Dozzle login
+  ansible.builtin.include_tasks: dozzle-users.yml
+  when: app.name == 'dozzle'
+
+- name: "Start {{ app.name }}"
+  community.docker.docker_compose_v2:
+    project_src: "{{ apps_dir }}/{{ app.name }}"
+    state: present
+    recreate: "{{ 'always' if app.name == 'dozzle' and apps_dozzle_users is changed else 'auto' }}"
+  when: not ansible_check_mode

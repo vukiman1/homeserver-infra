@@ -1,0 +1,9 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "automerge": false,
+  "enabledManagers": ["docker-compose", "terraform", "github-actions", "pip_requirements", "ansible-galaxy"],
+  "ansible-galaxy": {
+    "managerFilePatterns": ["/^ansible/requirements\\.yml$/"]
+  }
+}

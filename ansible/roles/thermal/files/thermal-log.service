@@ -1,0 +1,6 @@
+[Unit]
+Description=Log CPU temperature, fan and battery
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/thermal-log

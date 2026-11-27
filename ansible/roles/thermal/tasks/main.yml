@@ -1,0 +1,33 @@
+---
+- name: Install the temperature logger
+  ansible.builtin.copy:
+    src: thermal-log
+    dest: /usr/local/bin/thermal-log
+    mode: "0755"
+  become: true
+
+- name: Install the temperature logger units
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    dest: "/etc/systemd/system/{{ item }}"
+    mode: "0644"
+  loop: [thermal-log.service, thermal-log.timer]
+  become: true
+  notify: Reload systemd for thermal
+
+- name: Read the available hardware sensors
+  ansible.builtin.shell: cat /sys/class/hwmon/hwmon*/name 2>/dev/null || true
+  register: thermal_sensors
+  changed_when: false
+  check_mode: false
+
+- name: Reload systemd before enabling the timer
+  ansible.builtin.meta: flush_handlers
+
+- name: Log temperatures on machines with the expected sensors
+  ansible.builtin.systemd_service:
+    name: thermal-log.timer
+    state: started
+    enabled: true
+  become: true
+  when: "['coretemp', 'dell_smm'] is subset(thermal_sensors.stdout_lines)"
